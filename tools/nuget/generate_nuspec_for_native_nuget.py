@@ -272,6 +272,10 @@ def generate_dependencies(xml_text, package_name, version):
             xml_text.append('<group targetFramework="net8.0-maccatalyst14.0">')
             xml_text.append('<dependency id="Microsoft.ML.OnnxRuntime.Managed"' + ' version="' + version + '"/>')
             xml_text.append("</group>")
+            # Support net6.0-maccatalyst
+            xml_text.append('<group targetFramework="net6.0-maccatalyst14.0">')
+            xml_text.append('<dependency id="Microsoft.ML.OnnxRuntime.Managed"' + ' version="' + version + '"/>')
+            xml_text.append("</group>")
         # Support Native C++
         if include_dml:
             xml_text.append('<group targetFramework="native">')
@@ -988,9 +992,49 @@ def generate_files(line_list, args):
                 args.sources_path, "csharp", "src", "Microsoft.ML.OnnxRuntime", "targets", "net8.0-maccatalyst", "_._"
             )
 
-            os.system(copy_command + " " + net8_android_source_targets + " " + net8_android_target_targets)
-            os.system(copy_command + " " + net8_ios_source_targets + " " + net8_ios_target_targets)
-            os.system(copy_command + " " + net8_maccatalyst_source_targets + " " + net8_maccatalyst_target_targets)
+            net6_maccatalyst_source_targets = os.path.join(
+                args.sources_path,
+                "csharp",
+                "src",
+                "Microsoft.ML.OnnxRuntime",
+                "targets",
+                "net6.0-maccatalyst",
+                "_._",
+            )
+
+            net6_maccatalyst_target_targets = os.path.join(
+                args.sources_path, "csharp", "src", "Microsoft.ML.OnnxRuntime", "targets", "net6.0-maccatalyst", "_._"
+            )
+
+            net6_macos_source_targets = os.path.join(
+                args.sources_path, "csharp", "src", "Microsoft.ML.OnnxRuntime", "targets", "net6.0-macos", "targets.xml"
+            )
+            net6_macos_target_targets = os.path.join(
+                args.sources_path,
+                "csharp",
+                "src",
+                "Microsoft.ML.OnnxRuntime",
+                "targets",
+                "net6.0-macos",
+                args.package_name + ".targets",
+            )
+
+            os.system(copy_command + " " + monoandroid_source_targets + " " + monoandroid_target_targets)
+            os.system(copy_command + " " + xamarinios_source_targets + " " + xamarinios_target_targets)
+            os.system(copy_command + " " + net6_android_source_targets + " " + net6_android_target_targets)
+            os.system(copy_command + " " + net6_ios_source_targets + " " + net6_ios_target_targets)
+            os.system(copy_command + " " + net6_maccatalyst_source_targets + " " + net6_maccatalyst_target_targets)
+            os.system(copy_command + " " + net6_macos_source_targets + " " + net6_macos_target_targets)
+
+            files_list.append("<file src=" + '"' + monoandroid_target_targets + '" target="build\\monoandroid11.0" />')
+            files_list.append(
+                "<file src=" + '"' + monoandroid_target_targets + '" target="buildTransitive\\monoandroid11.0" />'
+            )
+
+            files_list.append("<file src=" + '"' + xamarinios_target_targets + '" target="build\\xamarinios10" />')
+            files_list.append(
+                "<file src=" + '"' + xamarinios_target_targets + '" target="buildTransitive\\xamarinios10" />'
+            )
 
             files_list.append(
                 "<file src=" + '"' + net8_android_target_targets + '" target="build\\net8.0-android31.0" />'
@@ -1003,6 +1047,17 @@ def generate_files(line_list, args):
             files_list.append(
                 "<file src=" + '"' + net8_ios_target_targets + '" target="buildTransitive\\net8.0-ios15.4" />'
             )
+            files_list.append(
+                "<file src=" + '"' + net6_maccatalyst_target_targets + '" target="build\\net6.0-maccatalyst14.0" />'
+            )
+            files_list.append(
+                "<file src="
+                + '"'
+                + net6_maccatalyst_target_targets
+                + '" target="buildTransitive\\net6.0-maccatalyst14.0" />'
+            )
+
+            files_list.append("<file src=" + '"' + net6_macos_target_targets + '" target="build\\net6.0-macos12.3" />')
             files_list.append(
                 "<file src=" + '"' + net8_maccatalyst_target_targets + '" target="build\\net8.0-maccatalyst14.0" />'
             )

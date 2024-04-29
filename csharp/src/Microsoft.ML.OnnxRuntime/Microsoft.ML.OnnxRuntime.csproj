@@ -19,7 +19,7 @@
   <PropertyGroup Condition="('$(OrtPackageId)' == 'Microsoft.ML.OnnxRuntime' OR
                              '$(OrtPackageId)' == 'Microsoft.ML.OnnxRuntime.Azure') AND
                             '$(IncludeMobileTargets)' == 'true'">
-    <MobileTargets>net8.0-android;net8.0-ios;net8.0-maccatalyst</MobileTargets>
+    <MobileTargets>$(MobileTargets);net6.0-android;net6.0-ios;net6.0-maccatalyst</MobileTargets>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OrtPackageId)' == 'Microsoft.ML.OnnxRuntime.Training' AND
@@ -97,7 +97,8 @@
     -->
     <IsAndroidTarget Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">true</IsAndroidTarget>
     <IsIOSTarget Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' OR
-                            $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">true</IsIOSTarget>
+                            $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst' OR
+                            $(TargetFramework.StartsWith('xamarinios'))">true</IsIOSTarget>
     <IsMacTarget Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">true</IsMacTarget>
   </PropertyGroup>
 
