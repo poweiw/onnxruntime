@@ -164,7 +164,7 @@ struct ProviderHost {
   virtual std::string demangle(const char* name) = 0;
   virtual std::string demangle(const std::string& name) = 0;
 
-#ifdef USE_CUDA
+// #ifdef USE_CUDA
   virtual std::unique_ptr<IAllocator> CreateCUDAAllocator(int16_t device_id, const char* name) = 0;
   virtual std::unique_ptr<IAllocator> CreateCUDAPinnedAllocator(const char* name) = 0;
   virtual std::unique_ptr<IDataTransfer> CreateGPUDataTransfer() = 0;
@@ -176,7 +176,7 @@ struct ProviderHost {
 
   virtual Status CudaCall_false(int retCode, const char* exprString, const char* libName, int successCode, const char* msg, const char* file, const int line) = 0;
   virtual void CudaCall_true(int retCode, const char* exprString, const char* libName, int successCode, const char* msg, const char* file, const int line) = 0;
-#endif
+// #endif
 
 #ifdef USE_ROCM
   virtual std::unique_ptr<IAllocator> CreateROCMAllocator(int16_t device_id, const char* name) = 0;
@@ -1120,7 +1120,7 @@ struct ProviderHost {
   virtual ProviderHostCPU& GetProviderHostCPU() = 0;
 
 #if !defined(ORT_MINIMAL_BUILD) || defined(ORT_MINIMAL_BUILD_CUSTOM_OPS)
-  virtual Status LoadDynamicLibrary(onnxruntime::PathString library_name) = 0;
+  virtual Status LoadDynamicLibrary(const onnxruntime::PathString& library_name) = 0;
 #endif
 
   // ModelMetadefIdGenerator

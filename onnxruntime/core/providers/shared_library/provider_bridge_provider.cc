@@ -338,7 +338,7 @@ common::Status IExecutionProvider::Compile(const std::vector<FusedNodeAndGraph>&
   return g_host->IExecutionProvider__Compile(this, fused_nodes_and_graphs, node_compute_funcs);
 }
 
-#ifdef USE_TENSORRT
+// #ifdef USE_TENSORRT
 std::unique_ptr<IAllocator> CreateCUDAAllocator(int16_t device_id, const char* name) {
   return g_host->CreateCUDAAllocator(device_id, name);
 }
@@ -350,7 +350,7 @@ std::unique_ptr<IAllocator> CreateCUDAPinnedAllocator(const char* name) {
 std::unique_ptr<IDataTransfer> CreateGPUDataTransfer() {
   return g_host->CreateGPUDataTransfer();
 }
-#endif
+// #endif
 
 #ifdef USE_MIGRAPHX
 std::unique_ptr<IAllocator> CreateROCMAllocator(int16_t device_id, const char* name) {

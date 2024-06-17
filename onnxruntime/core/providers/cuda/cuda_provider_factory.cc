@@ -238,8 +238,11 @@ struct CUDA_Provider : Provider {
    * See CUDAExecutionProviderInfo::FromProviderOptions() for more details.
    */
   void UpdateProviderOptions(void* provider_options, const ProviderOptions& options) override {
+    printf("CUDA update provider options!\n");
     auto internal_options = onnxruntime::CUDAExecutionProviderInfo::FromProviderOptions(options);
+    printf("internal!\n");
     auto& cuda_options = *reinterpret_cast<OrtCUDAProviderOptionsV2*>(provider_options);
+    printf("reinterpret_cast!\n");
 
     cuda_options.device_id = internal_options.device_id;
     cuda_options.cudnn_conv_algo_search = internal_options.cudnn_conv_algo_search;

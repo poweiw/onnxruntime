@@ -182,11 +182,15 @@ struct Node__EdgeIterator_Impl : Node__EdgeIterator {
 
 #if !defined(ORT_MINIMAL_BUILD) || defined(ORT_MINIMAL_BUILD_CUSTOM_OPS)
 common::Status LoadDynamicLibraryFromProvider(onnxruntime::PathString library_name) {
+  printf("Loading %s from provider\n", library_name.c_str());
   const auto& platform_env = onnxruntime::Env::Default();
+  printf("platform env\n");
   void* library_handle = nullptr;
 
+  printf("loading dynamic from env\n");
   ORT_RETURN_IF_ERROR(platform_env.LoadDynamicLibrary(library_name, false, &library_handle));
   if (!library_handle) {
+    printf("handle faileD!\n");
     return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Failed to load dynamic library ",
                            onnxruntime::PathToUTF8String(library_name));
   }
@@ -226,7 +230,7 @@ struct ProviderHostImpl : ProviderHost {
   void* CPUAllocator__Alloc(CPUAllocator* p, size_t size) override { return p->CPUAllocator::Alloc(size); }
   void CPUAllocator__Free(CPUAllocator* p, void* allocation) override { return p->CPUAllocator::Free(allocation); }
 
-#ifdef USE_CUDA
+  // #ifdef USE_CUDA
   std::unique_ptr<IAllocator> CreateCUDAAllocator(int16_t device_id, const char* name) override { return GetProviderInfo_CUDA().CreateCUDAAllocator(device_id, name); }
   std::unique_ptr<IAllocator> CreateCUDAPinnedAllocator(const char* name) override { return GetProviderInfo_CUDA().CreateCUDAPinnedAllocator(name); }
   std::unique_ptr<IDataTransfer> CreateGPUDataTransfer() override { return GetProviderInfo_CUDA().CreateGPUDataTransfer(); }
@@ -239,7 +243,7 @@ struct ProviderHostImpl : ProviderHost {
 
   Status CudaCall_false(int retCode, const char* exprString, const char* libName, int successCode, const char* msg, const char* file, const int line) override { return GetProviderInfo_CUDA().CudaCall_false(retCode, exprString, libName, successCode, msg, file, line); }
   void CudaCall_true(int retCode, const char* exprString, const char* libName, int successCode, const char* msg, const char* file, const int line) override { GetProviderInfo_CUDA().CudaCall_true(retCode, exprString, libName, successCode, msg, file, line); }
-#endif
+  // #endif
 
 #ifdef USE_ROCM
   std::unique_ptr<IAllocator> CreateROCMAllocator(int16_t device_id, const char* name) override { return GetProviderInfo_ROCM().CreateROCMAllocator(device_id, name); }
@@ -1441,10 +1445,16 @@ struct ProviderHostImpl : ProviderHost {
   std::wstring ToWideString(const std::string& s) override { return onnxruntime::ToWideString(s); }
 #endif
 
-  ProviderHostCPU& GetProviderHostCPU() override { return onnxruntime::GetProviderHostCPU(); }
+  ProviderHostCPU& GetProviderHostCPU() override {
+    printf("Outside provider\n");
+    return onnxruntime::GetProviderHostCPU();
+  }
 
 #if !defined(ORT_MINIMAL_BUILD) || defined(ORT_MINIMAL_BUILD_CUSTOM_OPS)
-  Status LoadDynamicLibrary(onnxruntime::PathString library_name) override { return LoadDynamicLibraryFromProvider(library_name); };
+  Status LoadDynamicLibrary(const onnxruntime::PathString& library_name) override {
+    printf("Loading dynamic library in providerhostimpl\n");
+    return LoadDynamicLibraryFromProvider(library_name);
+  };
 #endif
 } provider_host_;
 #if defined(_MSC_VER) && !defined(__clang__)
@@ -1457,6 +1467,7 @@ struct ProviderSharedLibrary {
 
     auto full_path = Env::Default().GetRuntimePath() +
                      PathString(LIBRARY_PREFIX ORT_TSTR("onnxruntime_providers_shared") LIBRARY_EXTENSION);
+    printf("Loading shared library at providersharedlibrary ensure\n");
     ORT_THROW_IF_ERROR(Env::Default().LoadDynamicLibrary(full_path, true /*shared_globals on unix*/, &handle_));
 
     void (*PProvider_SetHost)(void*);
@@ -1506,19 +1517,32 @@ struct ProviderLibrary {
     try {
       if (!provider_) {
         s_library_shared.Ensure();
+        printf("shared ensured\n\n\n\n");
 
         auto full_path = Env::Default().GetRuntimePath() + filename_;
-        ORT_THROW_IF_ERROR(Env::Default().LoadDynamicLibrary(full_path, false, &handle_));
+        printf("full_path\n");
+        try {
+          ORT_THROW_IF_ERROR(Env::Default().LoadDynamicLibrary(full_path, false, &handle_));
+          printf("load dynamic\n");
+        } catch (std::exception& e) {
+          printf("Exception here!!\n");
+          throw;
+        }
 
         Provider* (*PGetProvider)();
+        printf("load symbol\n");
         ORT_THROW_IF_ERROR(Env::Default().GetSymbolFromLibrary(handle_, "GetProvider", (void**)&PGetProvider));
+        printf("load symbol!\n");
 
         provider_ = PGetProvider();
+        printf("called!\n");
         provider_->Initialize();
+        printf("initialized!\n");
       }
       return *provider_;
-    } catch (const std::exception&) {
+    } catch (const std::exception& e) {
       Unload();  // If anything fails we unload the library and rethrow
+      printf("Happens!!!!!!!!! %s\n", e.what());
       throw;
     }
   }
@@ -1958,6 +1982,9 @@ ProviderOptions GetProviderInfo_Tensorrt(const OrtTensorRTProviderOptionsV2* pro
 }
 
 void UpdateProviderInfo_Cuda(OrtCUDAProviderOptionsV2* provider_options, const ProviderOptions& options) {
+  printf("Updating...\n");
+  s_library_cuda.Get();
+  printf("Got!\n");
   return s_library_cuda.Get().UpdateProviderOptions(reinterpret_cast<void*>(provider_options), options);
 }
 
@@ -2371,14 +2398,14 @@ ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_CUDA_V2, _In_
 
 ORT_API_STATUS_IMPL(OrtApis::CreateCUDAProviderOptions, _Outptr_ OrtCUDAProviderOptionsV2** out) {
   API_IMPL_BEGIN
-#ifdef USE_CUDA
+  // #ifdef USE_CUDA
   auto options = std::make_unique<OrtCUDAProviderOptionsV2>();
   *out = options.release();
   return nullptr;
-#else
-  ORT_UNUSED_PARAMETER(out);
-  return CreateStatus(ORT_FAIL, "CUDA execution provider is not enabled in this build.");
-#endif
+  // #else
+  // ORT_UNUSED_PARAMETER(out);
+  // return CreateStatus(ORT_FAIL, "CUDA execution provider is not enabled in this build.");
+  // #endif
   API_IMPL_END
 }
 
@@ -2388,27 +2415,37 @@ ORT_API_STATUS_IMPL(OrtApis::UpdateCUDAProviderOptions,
                     _In_reads_(num_keys) const char* const* provider_options_values,
                     size_t num_keys) {
   API_IMPL_BEGIN
-#ifdef USE_CUDA
+  // #ifdef USE_CUDA
   onnxruntime::ProviderOptions provider_options_map;
+  printf("Num keys: %ld\n", num_keys);
   for (size_t i = 0; i != num_keys; ++i) {
+    printf("%ld: %s = %s\n", i, provider_options_keys[i], provider_options_values[i]);
     if (provider_options_keys[i] == nullptr || provider_options_keys[i][0] == '\0' ||
         provider_options_values[i] == nullptr || provider_options_values[i][0] == '\0') {
       return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT, "key/value cannot be empty");
     }
+    // printf("%s: %s\n", provider_options_keys[i], provider_options_values[i]);
+    printf("passed\n");
 
     provider_options_map[provider_options_keys[i]] = provider_options_values[i];
   }
 
+  for (const auto& [key, value] : provider_options_map) {
+    printf("key %s, value %s\n", key.c_str(), value.c_str());
+  }
+
+  printf("for loop done\n");
   onnxruntime::UpdateProviderInfo_Cuda(cuda_options,
                                        reinterpret_cast<const onnxruntime::ProviderOptions&>(provider_options_map));
+  printf("updated!\n");
   return nullptr;
-#else
-  ORT_UNUSED_PARAMETER(cuda_options);
-  ORT_UNUSED_PARAMETER(provider_options_keys);
-  ORT_UNUSED_PARAMETER(provider_options_values);
-  ORT_UNUSED_PARAMETER(num_keys);
-  return CreateStatus(ORT_FAIL, "CUDA execution provider is not enabled in this build.");
-#endif
+  // #else
+  //   ORT_UNUSED_PARAMETER(cuda_options);
+  //   ORT_UNUSED_PARAMETER(provider_options_keys);
+  //   ORT_UNUSED_PARAMETER(provider_options_values);
+  //   ORT_UNUSED_PARAMETER(num_keys);
+  //   return CreateStatus(ORT_FAIL, "CUDA execution provider is not enabled in this build.");
+  // #endif
   API_IMPL_END
 }
 
@@ -2434,18 +2471,18 @@ ORT_API_STATUS_IMPL(OrtApis::UpdateCUDAProviderOptionsWithValue,
                     _In_ const char* key,
                     _In_ void* value) {
   API_IMPL_BEGIN
-#ifdef USE_CUDA
+  // #ifdef USE_CUDA
   if (strcmp(key, "user_compute_stream") == 0) {
     cuda_options->has_user_compute_stream = 1;
     cuda_options->user_compute_stream = value;
   }
   return nullptr;
-#else
-  ORT_UNUSED_PARAMETER(cuda_options);
-  ORT_UNUSED_PARAMETER(key);
-  ORT_UNUSED_PARAMETER(value);
-  return CreateStatus(ORT_FAIL, "CUDA execution provider is not enabled in this build.");
-#endif
+  // #else
+  //   ORT_UNUSED_PARAMETER(cuda_options);
+  //   ORT_UNUSED_PARAMETER(key);
+  //   ORT_UNUSED_PARAMETER(value);
+  //   return CreateStatus(ORT_FAIL, "CUDA execution provider is not enabled in this build.");
+  // #endif
   API_IMPL_END
 }
 

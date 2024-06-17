@@ -26,6 +26,7 @@ extern TensorrtLogger& GetTensorrtLogger(bool verbose);
  * So, TensorRTCustomOp uses variadic inputs/outputs to pass ONNX graph validation.
  */
 common::Status CreateTensorRTCustomOpDomainList(std::vector<OrtCustomOpDomain*>& domain_list, const std::string extra_plugin_lib_paths) {
+  printf("createtensorrtcustomopdomainlist called!\n");
   static std::unique_ptr<OrtCustomOpDomain> custom_op_domain = std::make_unique<OrtCustomOpDomain>();
   static std::vector<std::unique_ptr<TensorRTCustomOp>> created_custom_op_list;
   static OrtMutex mutex;
@@ -44,6 +45,7 @@ common::Status CreateTensorRTCustomOpDomainList(std::vector<OrtCustomOpDomain*>&
     std::stringstream extra_plugin_libs(extra_plugin_lib_paths);
     std::string lib;
     while (std::getline(extra_plugin_libs, lib, ';')) {
+      printf("Loading in tensorrt!?\n");
       auto status = LoadDynamicLibrary(ToPathString(lib));
       if (status == Status::OK()) {
         LOGS_DEFAULT(VERBOSE) << "[TensorRT EP] Successfully load " << lib;
