@@ -90,20 +90,14 @@ variables:
     value: nvidia/cuda:12.2.2-cudnn8-devel-ubi8
 - name: win_trt_version
   ${{ if eq(parameters.CudaVersion, '11.8') }}:
+    value: 10.0.1.6-1.cuda11.8
+  ${{ if eq(parameters.CudaVersion, '12.2') }}:
+    value: 10.0.1.6-1.cuda12.4
+- name: win_trt_version
+  ${{ if eq(parameters.CudaVersion, '11.8') }}:
     value: 11.8
   ${{ if eq(parameters.CudaVersion, '12.2') }}:
     value: 12.4
-
-- name: win_trt_home
-  ${{ if eq(parameters.CudaVersion, '11.8') }}:
-    value: $(Agent.TempDirectory)\TensorRT-10.0.1.6.Windows10.x86_64.cuda-11.8
-  ${{ if eq(parameters.CudaVersion, '12.2') }}:
-    value: $(Agent.TempDirectory)\TensorRT-10.0.1.6.Windows10.x86_64.cuda-12.4
-- name: win_cuda_home
-  ${{ if eq(parameters.CudaVersion, '11.8') }}:
-    value: $(Agent.TempDirectory)\v11.8
-  ${{ if eq(parameters.CudaVersion, '12.2') }}:
-    value: $(Agent.TempDirectory)\v12.2
 
 stages:
 - template: stages/set_packaging_variables_stage.yml
@@ -166,24 +160,44 @@ stages:
 - template: stages/java-cuda-packaging-stage.yml
   parameters:
     CudaVersion: ${{ parameters.CudaVersion }}
+    docker_base_image: ${{ variables.docker_base_image }}
+    linux_trt_version: ${{ variables.linux_trt_version }}
+    buildJava: true
+    buildNodejs: true
+
+#CUDA without tensorrt
+- template: templates/win-ci.yml
+  parameters:
+    ort_build_pool_name: 'onnxruntime-Win2022-GPU-T4'
+    DoCompliance: ${{ parameters.DoCompliance }}
+    DoEsrp: ${{ parameters.DoEsrp }}
+    stage_name_suffix: gpu
+    buildArch: x64
+    msbuildPlatform: x64
+    packageName: x64-cuda
+    buildparameter: --use_cuda --cuda_home=$(Agent.TempDirectory)\v${{ parameters.CudaVersion }} --enable_onnx_tests --enable_wcos --build_java --cmake_extra_defines "CMAKE_CUDA_ARCHITECTURES=60;61;70;75;80" ${{parameters.AdditionalBuildFlag}}
+    runTests: ${{ parameters.RunOnnxRuntimeTests }}
+    buildJava: true
+    java_artifact_id: onnxruntime_gpu
+    CudaVersion: ${{ parameters.CudaVersion }}
     SpecificArtifact: ${{ parameters.SpecificArtifact }}
     BuildId: ${{ parameters.BuildId }}
 
 - template: stages/nuget-combine-cuda-stage.yml
   parameters:
-      DoCompliance: ${{ parameters.DoCompliance }}
-      CudaVersion: ${{ parameters.CudaVersion }}
-      docker_base_image: ${{ variables.docker_base_image }}
-      RunOnnxRuntimeTests: ${{ parameters.RunOnnxRuntimeTests }}
-      UseIncreasedTimeoutForTests: ${{ parameters.UseIncreasedTimeoutForTests }}
-      win_trt_home: ${{ variables.win_trt_home }}
-      win_cuda_home: ${{ variables.win_cuda_home }}
-      DoEsrp: ${{ parameters.DoEsrp }}
-      IsReleaseBuild: ${{ parameters.IsReleaseBuild }}
-      buildJava: true
-      buildNodejs: true
-      SpecificArtifact: ${{ parameters.SpecificArtifact }}
-      BuildId: ${{ parameters.BuildId }}
+    ort_build_pool_name: 'onnxruntime-Win2022-GPU-T4'
+    DoCompliance: ${{ parameters.DoCompliance }}
+    DoEsrp: ${{ parameters.DoEsrp }}
+    stage_name_suffix: tensorrt
+    buildArch: x64
+    msbuildPlatform: x64
+    packageName: x64-tensorrt
+    buildparameter: --use_tensorrt --tensorrt_home="$(Agent.TempDirectory)\TensorRT-10.0.1.6.Windows10.x86_64.cuda-${{ variables.win_trt_version }}"  --cuda_home="$(Agent.TempDirectory)\v${{ parameters.CudaVersion }}"  --enable_onnx_tests --enable_wcos --build_java --cmake_extra_defines "CMAKE_CUDA_ARCHITECTURES=60;61;70;75;80"
+    runTests: ${{ parameters.RunOnnxRuntimeTests }}
+    buildJava: true
+    java_artifact_id: onnxruntime_gpu
+    CudaVersion: ${{ parameters.CudaVersion }}
+    UseIncreasedTimeoutForTests: ${{ parameters.UseIncreasedTimeoutForTests }}
 
 # ROCm
 - stage: Linux_C_API_Packaging_ROCm_x64
@@ -408,9 +422,13 @@ stages:
 
     - template: templates/get-docker-image-steps.yml
       parameters:
-        Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.package_ubi8_cuda11_8_tensorrt8_6
+        Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.package_ubi8_cuda_tensorrt10_0
         Context: tools/ci_build/github/linux/docker/
-        DockerBuildArgs: "--build-arg BUILD_UID=$( id -u )"
+        DockerBuildArgs: "
+        --build-arg BUILD_UID=$( id -u )
+        --build-arg BASEIMAGE=${{ variables.docker_base_image }}
+        --build-arg TRT_VERSION=${{ variables.linux_trt_version }}
+        "
         Repository: onnxruntimeubi8packagestest
         UpdateDepsTxt: false
 
@@ -925,6 +943,50 @@ stages:
     - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
       displayName: 'Clean Agent Directories'
       condition: always()
+
+- template: nuget/templates/test_win.yml
+  parameters:
+    AgentPool : 'onnxruntime-Win2022-GPU-A10'
+    NugetPackageName : 'Microsoft.ML.OnnxRuntime.Gpu'
+    ArtifactSuffix: 'GPU'
+    StageSuffix: 'GPU'
+    Skipx86Tests: 'true'
+    CudaVersion: ${{ parameters.CudaVersion }}
+    SpecificArtifact: ${{ parameters.SpecificArtifact }}
+    BuildId: ${{ parameters.BuildId }}
+
+- template: nuget/templates/test_win.yml
+  parameters:
+    AgentPool : 'onnxruntime-Win2022-GPU-A10'
+    NugetPackageName : 'Microsoft.ML.OnnxRuntime.Gpu.Windows'
+    ArtifactSuffix: 'GPU'
+    StageSuffix: 'GPU'
+    MoreSuffix: '_Windows'
+    Skipx86Tests: 'true'
+    CudaVersion: ${{ parameters.CudaVersion }}
+    SpecificArtifact: ${{ parameters.SpecificArtifact }}
+    BuildId: ${{ parameters.BuildId }}
+
+- template: nuget/templates/test_linux.yml
+  parameters:
+    AgentPool : Onnxruntime-Linux-GPU-A10
+    ArtifactSuffix: 'GPU'
+    StageSuffix: 'GPU'
+    NugetPackageName : 'Microsoft.ML.OnnxRuntime.Gpu'
+    CudaVersion: ${{ parameters.CudaVersion }}
+    SpecificArtifact: ${{ parameters.specificArtifact }}
+    BuildId: ${{ parameters.BuildId }}
+
+- template: nuget/templates/test_linux.yml
+  parameters:
+    AgentPool : Onnxruntime-Linux-GPU-A10
+    ArtifactSuffix: 'GPU'
+    StageSuffix: 'GPU'
+    MoreSuffix: '_Linux'
+    NugetPackageName : 'Microsoft.ML.OnnxRuntime.Gpu.Linux'
+    CudaVersion: ${{ parameters.CudaVersion }}
+    SpecificArtifact: ${{ parameters.specificArtifact }}
+    BuildId: ${{ parameters.BuildId }}
 
 - template: nuget/templates/test_linux.yml
   parameters:
